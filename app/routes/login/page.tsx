@@ -3,11 +3,13 @@
 import { useForm } from "react-hook-form";
 import { Mail, Lock } from "lucide-react";
 import { useState } from "react";
-import { router, useSegments } from 'expo-router';
+ 
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const { register, handleSubmit } = useForm();
   const [logined, setlogined] = useState(false);
+  const router = useRouter();
 
   const onSubmit = (data: any) => {
     console.log(data);
@@ -15,6 +17,7 @@ export default function LoginPage() {
   };
 
   const handleLoggin = () => {
+    
     router.push('./homeppage')
   }
 
@@ -58,13 +61,13 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* <button type="submit" className="w-full bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition" 
+          <button type="submit" className="w-full bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition" 
           onClick={handleLoggin}
           >
             Ingresar
-          </button> */}
+          </button> 
 
-          {/* <div className="text-center">
+          {/* {/* <div className="text-center">
             <Link
               href="#"
               className="text-sm text-amber-600 hover:underline block"

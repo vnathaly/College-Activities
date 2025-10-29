@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/postgres": "^0.10.0",
     "expo-modules-core": "~3.0.23",
     "expo-router": "^6.0.14",
     "lucide-react": "^0.548.0",
