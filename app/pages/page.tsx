@@ -38,7 +38,7 @@ export default function Home() {
           </Link>
         </div>
 
-        <section className="mt-10 text-left bg-gray-50 p-5 rounded-xl border">
+        <section className="mt-10 text-left bg-white p-5 rounded-xl border">
           <h2 className="text-lg font-semibold text-green-800 mb-2 text-center">
             Credenciales de demostración
           </h2>
@@ -47,10 +47,10 @@ export default function Home() {
               <strong>Administrador:</strong> admin@utesa.edu.do / admin123
             </li>
             <li>
-              <strong>Organizador:</strong>Christopher
+              <strong>Organizador:</strong> orga@utesa.edu.do / orga123
             </li>
             <li>
-              <strong>Estudiante:</strong> Nathaly
+              <strong>Estudiante:</strong> juan@utesa.edu.do / juan123
             </li>
           </ul>
         </section>
