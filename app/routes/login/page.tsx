@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   const onSubmit = (data: any) => {
     console.log(data);
-    // backend que hare
+    // Si funciona seguimos
   };
 
   const handleLoggin = () => {

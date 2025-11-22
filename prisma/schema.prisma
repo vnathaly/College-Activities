@@ -1,0 +1,88 @@
+// Configuración de la base de datos PostgreSQL
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") 
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =========================================================================
+// MODELOS DE LA BASE DE DATOS "INTEGRADOR"
+// =========================================================================
+
+// Gestión de Usuarios y Perfiles
+model User {
+  id              String         @id @default(uuid())
+  matricula       String         @unique 
+  email           String         @unique 
+  passwordHash    String         
+  firstName       String
+  lastName        String
+  userType        String         @default("student") 
+  
+  // Relaciones
+  interests       Preference[]  
+  enrollments     Enrollment[]   
+  
+  // Perfil y Configuraciones
+  major           String?        
+  settings        Json?          
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+// Gestión de Actividades
+model Activity {
+  id            String       @id @default(uuid())
+  title         String       
+  description   String?      
+  
+  // Logística
+  date          DateTime     
+  place         String?      
+  maxCapacity   Int          
+  
+  // Clasificación
+  category      String      
+  responsible   String?      
+  
+  status        String       @default("active") 
+  
+  // Seguimiento
+  enrollments   Enrollment[] 
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+// Recomendaciones
+model Preference {
+  id        String   @id @default(uuid())
+  name      String   @unique 
+  
+  // Relación
+  users     User[]  
+}
+
+// Registro de Participación y Asistencia 
+model Enrollment {
+  id            String   @id @default(uuid())
+  
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  activityId    String
+  activity      Activity @relation(fields: [activityId], references: [id])
+  
+  // Seguimiento
+  isAttended    Boolean  @default(false) 
+  rating        Float?   
+  
+  createdAt     DateTime @default(now())
+  
+  // Restricción: Un usuario solo se puede inscribir una vez a una actividad
+  @@unique([userId, activityId]) 
+}

@@ -1,28 +1,33 @@
-import { User, INITIAL_USERS, saveToStorage, readFromStorage, INITIAL_NOTIFICATIONS, INITIAL_EVENTS } from "./data";
+import { User } from "@prisma/client";
 
-const STORAGE_USER_KEY = "agenda:user";
+export type SafeUser = Pick<User, 'id' | 'email' | 'firstName' | 'lastName' | 'userType' | 'major'>;
 
-export function loginWithEmail(email: string, password: string): User | null {
-  const users = readFromStorage<User[]>("agenda:users", INITIAL_USERS);
-  const found = users.find(u => u.email === email && u.password === password);
-  if (!found) return null;
-  const toStore: Omit<User, "password"> = { id: found.id, name: found.name, email: found.email, role: found.role, status: found.status };
-  saveToStorage(STORAGE_USER_KEY, toStore);
-  return toStore as User;
+const USER_STORAGE_KEY = 'utesa_user_session';
+
+export function getCurrentUser(): SafeUser | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const user = localStorage.getItem(USER_STORAGE_KEY);
+      return user ? (JSON.parse(user) as SafeUser) : null;
+    } catch (error) {
+      console.error("Error parsing user from localStorage:", error);
+      return null;
+    }
+  }
+  return null;
 }
 
-export function logout() {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_USER_KEY);
+export function setLocalUser(user: SafeUser): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  }
 }
 
-export function getCurrentUser(): User | null {
-  return readFromStorage<User | null>(STORAGE_USER_KEY, null);
+export function logout(): void {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(USER_STORAGE_KEY);
+    }
 }
 
-export function bootstrapInitialData() {
-  if (typeof window === "undefined") return;
-  if (!localStorage.getItem("agenda:users")) saveToStorage("agenda:users", INITIAL_USERS);
-  if (!localStorage.getItem("agenda:events")) saveToStorage("agenda:events", INITIAL_EVENTS);
-  if (!localStorage.getItem("agenda:notifs")) saveToStorage("agenda:notifs", INITIAL_NOTIFICATIONS);
-}
+export function bootstrapInitialData(): void {}
+export function loginWithEmail(email: string, password: string): SafeUser | null { return null; }
