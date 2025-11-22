@@ -1,3 +1,4 @@
+
 // Configuración de la base de datos PostgreSQL
 datasource db {
   provider = "postgresql"
@@ -23,7 +24,7 @@ model User {
   userType        String         @default("student") 
   
   // Relaciones
-  interests       Preference[]  
+  interests       Preference[]   
   enrollments     Enrollment[]   
   
   // Perfil y Configuraciones
@@ -46,7 +47,7 @@ model Activity {
   maxCapacity   Int          
   
   // Clasificación
-  category      String      
+  category      String       
   responsible   String?      
   
   status        String       @default("active") 
@@ -64,7 +65,7 @@ model Preference {
   name      String   @unique 
   
   // Relación
-  users     User[]  
+  users     User[]   
 }
 
 // Registro de Participación y Asistencia 
@@ -75,7 +76,7 @@ model Enrollment {
   user          User     @relation(fields: [userId], references: [id])
   
   activityId    String
-  activity      Activity @relation(fields: [activityId], references: [id])
+  activity      Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   
   // Seguimiento
   isAttended    Boolean  @default(false) 
@@ -85,4 +86,14 @@ model Enrollment {
   
   // Restricción: Un usuario solo se puede inscribir una vez a una actividad
   @@unique([userId, activityId]) 
+}
+
+// NUEVO: Modelo de Notificaciones
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?  
+  type      String   
+  message   String
+  sentAt    DateTime @default(now())
+  read      Boolean  @default(false)
 }

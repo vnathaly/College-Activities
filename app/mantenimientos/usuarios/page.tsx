@@ -1,85 +1,120 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, readFromStorage, saveToStorage, INITIAL_USERS } from "../../lib/data";
-import { getCurrentUser } from "../../lib/auth";
+import { getCurrentUser } from "../../lib/auth"; 
 import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
-import { UserCircle, Mail, Lock, Shield } from "lucide-react";
+import { UserCircle, Mail, Lock, Shield, BadgeCent } from "lucide-react"; // Importamos BadgeCent para el ícono de matrícula
+
+interface User {
+  id: string;
+  matricula: string; // Campo obligatorio
+  name: string;
+  email: string;
+  role: string;
+  password?: string;
+  status?: string;
+}
 
 export default function UsuariosPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [editing, setEditing] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", role: "student", password: "" });
+  // Agregamos matricula al estado inicial del formulario
+  const [form, setForm] = useState({ matricula: "", name: "", email: "", role: "student", password: "" });
+  const [loading, setLoading] = useState(false);
   const [meLoaded, setMeLoaded] = useState(false);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/pages/api/users');
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error("Error cargando usuarios", error);
+    }
+  };
 
   useEffect(() => {
     const me = getCurrentUser();
     if (!me) router.push("/login");
     else setMeLoaded(true);
 
-    const stored = readFromStorage<User[]>("agenda:users", []);
-    if (stored.length === 0) {
-      saveToStorage("agenda:users", INITIAL_USERS);
-      setUsers(INITIAL_USERS);
-    } else {
-      setUsers(stored);
-    }
+    fetchUsers();
   }, [router]);
 
-  useEffect(() => {
-    saveToStorage("agenda:users", users);
-  }, [users]);
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!form.name || !form.email || !form.password) {
+    // Validación incluyendo matrícula
+    if (!form.matricula || !form.name || !form.email || !form.password) {
       alert("Por favor completa todos los campos.");
       return;
     }
+    setLoading(true);
 
-    if (editing) {
-      setUsers(prev =>
-        prev.map(u =>
-          u.id === editing.id
-            ? { ...u, name: form.name, email: form.email, role: form.role as any, password: form.password }
-            : u
-        )
-      );
-      setEditing(null);
-    } else {
-      const newUser: User = {
-        id: uuidv4(),
-        name: form.name,
-        email: form.email,
-        role: form.role as any,
-        password: form.password,
-        status: "active",
-      };
-      setUsers(prev => [newUser, ...prev]); 
+    try {
+      if (editing) {
+        const res = await fetch(`/pages/api/users/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+        if (!res.ok) throw new Error("Error al actualizar");
+      } else {
+        const res = await fetch('/pages/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+        if (!res.ok) throw new Error("Error al crear");
+      }
+
+      await fetchUsers();
+      handleClear();
+    } catch (error) {
+      alert("Error al guardar usuario (Verifica que la matrícula o correo no existan ya)");
+    } finally {
+      setLoading(false);
     }
-
-    setForm({ name: "", email: "", role: "student", password: "" });
   }
 
   function handleClear() {
     setEditing(null);
-    setForm({ name: "", email: "", role: "student", password: "" });
+    setForm({ matricula: "", name: "", email: "", role: "student", password: "" });
   }
 
   function handleEdit(u: User) {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, role: u.role, password: u.password || "" });
+    setForm({ 
+      matricula: u.matricula, // Cargamos la matrícula existente
+      name: u.name, 
+      email: u.email, 
+      role: u.role, 
+      password: u.password || "" 
+    });
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este usuario?")) return;
-    setUsers(prev => prev.filter(u => u.id !== id));
+    
+    try {
+      const res = await fetch(`/pages/api/users/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== id));
+      } else {
+        alert("Error al eliminar");
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  if (!meLoaded) return <div className="text-center mt-10 text-gray-600">Redirigiendo...</div>;
+  if (!meLoaded) return <div className="text-center mt-10 text-gray-600">Verificando sesión...</div>;
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-white py-10">
@@ -90,6 +125,25 @@ export default function UsuariosPage() {
 
         <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-8 mb-10">
           <div className="space-y-4">
+            
+            {/* Campo Matrícula */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Matrícula
+              </label>
+              <div className="flex items-center border rounded-lg px-3 py-2">
+                <BadgeCent className="text-gray-400 w-5 h-5 mr-2" />
+                <input
+                  type="text"
+                  placeholder="Ej: 1-22-1960"
+                  value={form.matricula}
+                  onChange={(e) => setForm({ ...form, matricula: e.target.value })}
+                  className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nombre completo
@@ -102,6 +156,7 @@ export default function UsuariosPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -117,6 +172,7 @@ export default function UsuariosPage() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -130,6 +186,7 @@ export default function UsuariosPage() {
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="flex-1 outline-none text-gray-700 bg-transparent"
+                  disabled={loading}
                 >
                   <option value="student">Estudiante</option>
                   <option value="organizer">Organizador</option>
@@ -149,6 +206,7 @@ export default function UsuariosPage() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -157,13 +215,15 @@ export default function UsuariosPage() {
               <button
                 type="submit"
                 className="flex-1 bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition"
+                disabled={loading}
               >
-                {editing ? "Guardar cambios" : "Crear usuario"}
+                {loading ? "Guardando..." : (editing ? "Guardar cambios" : "Crear usuario")}
               </button>
               <button
                 type="button"
                 onClick={handleClear}
                 className="flex-1 border border-green-700 text-green-700 py-2 rounded-lg hover:bg-green-50 transition"
+                disabled={loading}
               >
                 Limpiar
               </button>
@@ -189,7 +249,7 @@ export default function UsuariosPage() {
                       <p className="font-semibold text-gray-800">
                         {u.name}
                         <span className="text-xs text-gray-500 ml-2">
-                          ({u.role})
+                          ({u.matricula}) - {u.role}
                         </span>
                       </p>
                       <p className="text-sm text-gray-600">{u.email}</p>

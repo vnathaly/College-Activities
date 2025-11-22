@@ -1,49 +1,101 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NotificationItem, readFromStorage, saveToStorage } from "../../lib/data";
-import { getCurrentUser } from "../../lib/auth";
+import { getCurrentUser } from "../../lib/auth"; 
 import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
 import { Bell, AlertTriangle, Info, User } from "lucide-react";
+
+interface NotificationItem {
+  id: string;
+  userId: string | null;
+  type: "info" | "alert" | "reminder";
+  message: string;
+  sentAt: string;
+  read: boolean;
+}
 
 export default function NotifsPage() {
   const router = useRouter();
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
   const [form, setForm] = useState({ message: "", type: "info", userId: "" });
+  const [loading, setLoading] = useState(false);
+
+  const fetchNotifs = async () => {
+    try {
+      const res = await fetch('/pages/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifs(data);
+      }
+    } catch (error) {
+      console.error("Error cargando notificaciones", error);
+    }
+  };
 
   useEffect(() => {
     const me = getCurrentUser();
     if (!me) router.push("/login");
-    const stored = readFromStorage<NotificationItem[]>("agenda:notifs", []);
-    setNotifs(stored);
+    
+    fetchNotifs();
   }, [router]);
 
-  useEffect(() => {
-    saveToStorage("agenda:notifs", notifs);
-  }, [notifs]);
-
-  function sendNotif(e: React.FormEvent) {
+  async function sendNotif(e: React.FormEvent) {
     e.preventDefault();
-    const newN: NotificationItem = {
-      id: uuidv4(),
-      userId: form.userId === "" ? null : form.userId,
-      type: form.type as any,
-      message: form.message,
-      sentAt: new Date().toISOString(),
-      read: false,
-    };
-    setNotifs((prev) => [newN, ...prev]);
-    setForm({ message: "", type: "info", userId: "" });
+    if (!form.message) return alert("Escribe un mensaje");
+    
+    setLoading(true);
+    try {
+      const res = await fetch('/pages/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: form.message,
+          type: form.type,
+          userId: form.userId === "" ? null : form.userId
+        }),
+      });
+
+      if (res.ok) {
+        await fetchNotifs(); 
+        setForm({ message: "", type: "info", userId: "" }); // Limpiar formulario
+      } else {
+        alert("Error al enviar");
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function markRead(id: string) {
-    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  async function markRead(id: string) {
+    try {
+      const res = await fetch(`/pages/api/notifications/${id}`, {
+        method: 'PUT',
+      });
+      
+      if (res.ok) {
+        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      }
+    } catch (error) {
+      console.error("Error marcando como leída", error);
+    }
   }
 
-  function del(id: string) {
+  async function del(id: string) {
     if (!confirm("¿Eliminar notificación?")) return;
-    setNotifs((prev) => prev.filter((n) => n.id !== id));
+    
+    try {
+      const res = await fetch(`/pages/api/notifications/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setNotifs((prev) => prev.filter((n) => n.id !== id));
+      }
+    } catch (error) {
+      console.error("Error eliminando", error);
+    }
   }
 
   return (
@@ -65,7 +117,8 @@ export default function NotifsPage() {
                   placeholder="Escribe el contenido de la notificación..."
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  className="flex-1 outline-none text-gray-700 min-h-\[80px\]"
+                  className="flex-1 outline-none text-gray-700 min-h-[80px]"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -82,6 +135,7 @@ export default function NotifsPage() {
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
                   className="flex-1 outline-none text-gray-700 bg-transparent"
+                  disabled={loading}
                 >
                   <option value="info">Info</option>
                   <option value="reminder">Recordatorio</option>
@@ -100,6 +154,7 @@ export default function NotifsPage() {
                   value={form.userId}
                   onChange={(e) => setForm({ ...form, userId: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -108,13 +163,15 @@ export default function NotifsPage() {
               <button
                 type="submit"
                 className="flex-1 bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition"
+                disabled={loading}
               >
-                Enviar
+                {loading ? "Enviando..." : "Enviar"}
               </button>
               <button
                 type="button"
                 onClick={() => setForm({ message: "", type: "info", userId: "" })}
                 className="flex-1 border border-green-700 text-green-700 py-2 rounded-lg hover:bg-green-50 transition"
+                disabled={loading}
               >
                 Limpiar
               </button>

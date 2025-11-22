@@ -2,15 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { Calendar, MapPin, Users, FileText } from "lucide-react";
-import { EventItem, readFromStorage, saveToStorage } from "../../lib/data";
-import { getCurrentUser } from "../../lib/auth";
+import { getCurrentUser } from "../../lib/auth"; 
 import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
+
+interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  place: string | null;
+  maxCapacity: number;
+}
 
 export default function EventosPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [editing, setEditing] = useState<EventItem | null>(null);
+  const [loading, setLoading] = useState(false);
+  
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -19,23 +28,34 @@ export default function EventosPage() {
     maxCapacity: 30,
   });
 
+  const fetchEvents = async () => {
+    try {
+      const res = await fetch('/pages/api/events');
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data);
+      }
+    } catch (error) {
+      console.error("Error cargando eventos", error);
+    }
+  };
+
   useEffect(() => {
     const me = getCurrentUser();
     if (!me) router.push("/login");
-    const stored = readFromStorage<EventItem[]>("agenda:events", []);
-    setEvents(stored);
+    
+    fetchEvents(); 
   }, [router]);
-
-  useEffect(() => {
-    saveToStorage("agenda:events", events);
-  }, [events]);
 
   function startEdit(e: EventItem) {
     setEditing(e);
+    const dateObj = new Date(e.date);
+    const formattedDate = dateObj.toISOString().slice(0, 16);
+
     setForm({
       title: e.title,
       description: e.description || "",
-      date: e.date,
+      date: formattedDate,
       place: e.place || "",
       maxCapacity: e.maxCapacity,
     });
@@ -52,44 +72,55 @@ export default function EventosPage() {
     });
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.date) return alert("Completa los campos obligatorios.");
+    setLoading(true);
 
-    if (editing) {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.id === editing.id
-            ? {
-                ...ev,
-                title: form.title,
-                description: form.description,
-                date: form.date,
-                place: form.place,
-                maxCapacity: form.maxCapacity,
-              }
-            : ev
-        )
-      );
+    try {
+      if (editing) {
+        const res = await fetch(`/pages/api/events/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+        
+        if (!res.ok) throw new Error("Error al actualizar");
+      } else {
+        const res = await fetch('/pages/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+
+        if (!res.ok) throw new Error("Error al crear");
+      }
+
+      await fetchEvents(); 
       clearForm();
-    } else {
-      const newEv: EventItem = {
-        id: uuidv4(),
-        title: form.title,
-        description: form.description,
-        date: form.date || new Date().toISOString(),
-        place: form.place,
-        maxCapacity: form.maxCapacity,
-        status: "active",
-      };
-      setEvents((prev) => [newEv, ...prev]);
-      clearForm();
+    } catch (error) {
+      alert("Hubo un error al guardar el evento");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm("¿Eliminar evento?")) return;
-    setEvents((prev) => prev.filter((e) => e.id !== id));
+    
+    try {
+      const res = await fetch(`/pages/api/events/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+      } else {
+        alert("Error al eliminar");
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   return (
@@ -112,6 +143,7 @@ export default function EventosPage() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -128,6 +160,7 @@ export default function EventosPage() {
                   value={form.place}
                   onChange={(e) => setForm({ ...form, place: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -143,6 +176,7 @@ export default function EventosPage() {
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -161,6 +195,7 @@ export default function EventosPage() {
                     setForm({ ...form, maxCapacity: Number(e.target.value) })
                   }
                   className="flex-1 outline-none text-gray-700"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -177,19 +212,22 @@ export default function EventosPage() {
                 setForm({ ...form, description: e.target.value })
               }
               className="w-full border rounded-lg p-3 h-40 outline-none text-gray-700"
+              disabled={loading}
             />
 
             <div className="flex gap-3 mt-6">
               <button
                 type="submit"
                 className="flex-1 bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition"
+                disabled={loading}
               >
-                {editing ? "Guardar cambios" : "Crear evento"}
+                {loading ? "Guardando..." : (editing ? "Guardar cambios" : "Crear evento")}
               </button>
               <button
                 type="button"
                 onClick={clearForm}
                 className="flex-1 border border-green-700 text-green-700 py-2 rounded-lg hover:bg-green-50 transition"
+                disabled={loading}
               >
                 Limpiar
               </button>
