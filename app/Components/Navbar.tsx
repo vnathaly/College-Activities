@@ -40,7 +40,7 @@ export default function Navbar() {
 
   function handleLogout() {
     logout();
-    router.push("/login");
+    router.push("/");
     setUser(null);
   }
 
@@ -73,7 +73,7 @@ export default function Navbar() {
           </Link>
 
           <Link
-            href="/dashboard"
+            href="/"
             className={`flex items-center gap-1 text-sm font-medium hover:text-green-700 transition ${
               pathname.startsWith("/dashboard")
                 ? "text-green-800"
@@ -84,7 +84,7 @@ export default function Navbar() {
           </Link>
 
           <Link
-            href="/mantenimientos/usuarios"
+            href="/"
             className={`flex items-center gap-1 text-sm font-medium hover:text-green-700 transition ${
               pathname.startsWith("/mantenimientos")
                 ? "text-green-800"
@@ -135,7 +135,7 @@ export default function Navbar() {
             </div>
           ) : (
             <Link
-              href="/login"
+              href="/"
               className="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg hover:bg-green-800 transition font-medium"
             >
               Iniciar sesión

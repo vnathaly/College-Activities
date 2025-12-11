@@ -88,7 +88,7 @@ export default function EnrollmentsPage() {
 
     const handleLogout = () => {
         logout();
-        router.push("/login");
+        router.push("/");
     };
 
     const formatActivityDate = (dateStr: string) => {
