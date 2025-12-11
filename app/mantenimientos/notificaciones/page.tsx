@@ -192,7 +192,7 @@ export default function NotificacionesPage() {
                         {n.userId ? <User className="w-3 h-3 inline mr-1"/> : "(BROADCAST)"} {n.userId || 'A todos los usuarios'}
                     </span>
                   </p>
-                  <p className="text-gray-700 mt-1 break-words">{n.message}</p>
+                  <p className="text-gray-700 mt-1 wrap-break-word">{n.message}</p>
                   <p className="text-xs text-gray-600 mt-1">
                     Enviado: {formatTime(n.sentAt)}
                   </p>
