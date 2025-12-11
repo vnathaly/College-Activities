@@ -1,19 +1,21 @@
-import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
 export async function GET() {
   try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const result = await query(
+      `SELECT id, matricula, email, "firstName", "lastName", "userType" AS role, "passwordHash" AS password
+       FROM "User" 
+       ORDER BY "createdAt" DESC`
+    );
     
-    const formattedUsers = users.map(u => ({
+    const formattedUsers = result.rows.map(u => ({
       id: u.id,
-      matricula: u.matricula, 
+      matricula: u.matricula,
       name: `${u.firstName} ${u.lastName}`.trim(),
       email: u.email,
-      role: u.userType,
-      password: u.passwordHash,
+      role: u.role,
+      password: u.password,
       status: "active"
     }));
 
@@ -32,18 +34,13 @@ export async function POST(request: Request) {
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    const newUser = await prisma.user.create({
-      data: {
-        matricula, 
-        email,
-        passwordHash: password,
-        firstName,
-        lastName,
-        userType: role,
-      },
-    });
+    const newUserResult = await query(
+      `INSERT INTO "User" (matricula, email, "passwordHash", "firstName", "lastName", "userType") 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, "userType"`,
+      [matricula, email, password, firstName, lastName, role]
+    );
 
-    return NextResponse.json(newUser, { status: 201 });
+    return NextResponse.json(newUserResult.rows[0], { status: 201 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al crear usuario (posible matrícula duplicada)' }, { status: 500 });

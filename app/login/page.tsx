@@ -5,12 +5,11 @@ import { Mail, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  getCurrentUser,
-  setLocalUser,
-  bootstrapInitialData,
-  loginWithEmail,
-} from "../lib/auth";
+
+import { 
+  getCurrentUser, 
+  setLocalUser 
+} from "../../lib/auth"; 
 
 type LoginFormInputs = {
     email: string;
@@ -20,12 +19,11 @@ type LoginFormInputs = {
 export default function LoginPage() {
   const { register, handleSubmit, reset } = useForm<LoginFormInputs>();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    bootstrapInitialData();
-    const user = getCurrentUser();
+    const user = getCurrentUser(); 
     if (user) router.push("/dashboard");
   }, [router]);
 
@@ -34,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/pages/api/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,6 +56,7 @@ export default function LoginPage() {
       router.push("/dashboard");
 
     } catch (err) {
+      console.error("Error de conexión:", err);
       setError("Error de conexión con el servidor. Inténtalo de nuevo.");
     } finally {
       setIsLoading(false);
@@ -115,32 +114,25 @@ export default function LoginPage() {
               {isLoading ? "Ingresando..." : "Ingresar"}
             </button>
 
-            <button
+            {/* <button
               type="button"
               onClick={() => router.push("/register")}
               className="w-full border border-green-700 text-green-700 py-2 rounded-lg hover:bg-green-50 transition shadow-sm disabled:opacity-50"
               disabled={isLoading}
             >
               Registrarse
-            </button>
-
-            {/* <div className="text-center mt-2">
-              <a href="#" className="text-sm text-orange-600 hover:underline">
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div> */}
+            </button> */}
+            
           </form>
         </div>
 
         <div className="hidden md:flex justify-center items-center flex-1">
           <Image
-            src="/imagenes/register.png"
+            src="/register.png"
             alt="Login ilustración UTESA"
             width={420}
             height={420}
             className="object-contain rounded-xl shadow-lg"
-            priority
-            onError={(e) => { e.currentTarget.src = '/imagenes/register.png' }}
           />
         </div>
       </div>

@@ -16,12 +16,14 @@ export function getCurrentUser(): SafeUser | null {
   return null;
 }
 
+// Guarda la información del usuario devuelta por la API
 export function setLocalUser(user: SafeUser): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
   }
 }
 
+// Limpia la sesión
 export function logout(): void {
     if (typeof window !== 'undefined') {
         localStorage.removeItem(USER_STORAGE_KEY);

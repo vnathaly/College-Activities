@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calendar, MapPin, Users, FileText } from "lucide-react";
-import { getCurrentUser } from "../../lib/auth"; 
+import { Calendar, MapPin, Users, FileText, Loader2 } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth"; 
 import { useRouter } from "next/navigation";
 
 interface EventItem {
@@ -26,11 +26,13 @@ export default function EventosPage() {
     date: "",
     place: "",
     maxCapacity: 30,
+    category: "",
+    responsible: ""
   });
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch('/pages/api/events');
+      const res = await fetch('/api/events');
       if (res.ok) {
         const data = await res.json();
         setEvents(data);
@@ -42,8 +44,10 @@ export default function EventosPage() {
 
   useEffect(() => {
     const me = getCurrentUser();
-    if (!me) router.push("/login");
-    
+    if (!me || (me.userType !== 'admin' && me.userType !== 'organizer')) {
+        router.push("/dashboard"); 
+        return;
+    }
     fetchEvents(); 
   }, [router]);
 
@@ -58,6 +62,8 @@ export default function EventosPage() {
       date: formattedDate,
       place: e.place || "",
       maxCapacity: e.maxCapacity,
+      category: (e as any).category || "", 
+      responsible: (e as any).responsible || ""
     });
   }
 
@@ -69,6 +75,8 @@ export default function EventosPage() {
       date: "",
       place: "",
       maxCapacity: 30,
+      category: "",
+      responsible: ""
     });
   }
 
@@ -78,25 +86,18 @@ export default function EventosPage() {
     setLoading(true);
 
     try {
-      if (editing) {
-        const res = await fetch(`/pages/api/events/${editing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
-        
-        if (!res.ok) throw new Error("Error al actualizar");
-      } else {
-        const res = await fetch('/pages/api/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+      const url = editing ? `/api/events/${editing.id}` : '/api/events';
+      const method = editing ? 'PUT' : 'POST';
 
-        if (!res.ok) throw new Error("Error al crear");
-      }
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      
+      if (!res.ok) throw new Error("Error al guardar evento");
 
-      await fetchEvents(); 
+      await fetchEvents();
       clearForm();
     } catch (error) {
       alert("Hubo un error al guardar el evento");
@@ -109,7 +110,7 @@ export default function EventosPage() {
     if (!confirm("¿Eliminar evento?")) return;
     
     try {
-      const res = await fetch(`/pages/api/events/${id}`, {
+      const res = await fetch(`/api/events/${id}`, {
         method: 'DELETE',
       });
       
@@ -144,6 +145,7 @@ export default function EventosPage() {
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
                   disabled={loading}
+                  required
                 />
               </div>
             </div>
@@ -164,6 +166,25 @@ export default function EventosPage() {
                 />
               </div>
             </div>
+            
+             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categoría
+              </label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="w-full border rounded-lg p-3 outline-none text-gray-700"
+                disabled={loading}
+              >
+                  <option value="">Seleccione Categoría</option>
+                  <option value="Académica">Académica</option>
+                  <option value="Deportiva">Deportiva</option>
+                  <option value="Cultural">Cultural</option>
+                  <option value="Social">Social</option>
+              </select>
+            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -177,6 +198,7 @@ export default function EventosPage() {
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className="flex-1 outline-none text-gray-700"
                   disabled={loading}
+                  required
                 />
               </div>
             </div>
@@ -199,6 +221,7 @@ export default function EventosPage() {
                 />
               </div>
             </div>
+            
           </div>
 
           <div>
@@ -214,6 +237,20 @@ export default function EventosPage() {
               className="w-full border rounded-lg p-3 h-40 outline-none text-gray-700"
               disabled={loading}
             />
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Responsable
+              </label>
+              <input
+                type="text"
+                placeholder="Departamento de Deportes / Juan Pérez"
+                value={form.responsible}
+                onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+                className="w-full border rounded-lg p-3 outline-none text-gray-700"
+                disabled={loading}
+              />
+            </div>
 
             <div className="flex gap-3 mt-6">
               <button
@@ -221,7 +258,7 @@ export default function EventosPage() {
                 className="flex-1 bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition"
                 disabled={loading}
               >
-                {loading ? "Guardando..." : (editing ? "Guardar cambios" : "Crear evento")}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : (editing ? "Guardar cambios" : "Crear evento")}
               </button>
               <button
                 type="button"

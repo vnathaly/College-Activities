@@ -1,241 +1,218 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "../../lib/auth"; 
+import { Bell, Send, Loader2, Info, User } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { Bell, AlertTriangle, Info, User } from "lucide-react";
+import { useForm } from "react-hook-form";
 
 interface NotificationItem {
   id: string;
   userId: string | null;
-  type: "info" | "alert" | "reminder";
+  type: string;
   message: string;
   sentAt: string;
   read: boolean;
 }
 
-export default function NotifsPage() {
+export default function NotificacionesPage() {
   const router = useRouter();
+  const { register, handleSubmit, reset } = useForm();
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
-  const [form, setForm] = useState({ message: "", type: "info", userId: "" });
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchNotifs = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/pages/api/notifications');
+      const res = await fetch('/api/notifications');
       if (res.ok) {
         const data = await res.json();
         setNotifs(data);
       }
     } catch (error) {
       console.error("Error cargando notificaciones", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     const me = getCurrentUser();
-    if (!me) router.push("/login");
-    
+    if (!me || (me.userType !== 'admin' && me.userType !== 'organizer')) {
+        router.push("/dashboard"); 
+        return;
+    }
     fetchNotifs();
   }, [router]);
 
-  async function sendNotif(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.message) return alert("Escribe un mensaje");
-    
-    setLoading(true);
+  const onSubmit = async (data: any) => {
+    setIsSubmitting(true);
+
     try {
-      const res = await fetch('/pages/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: form.message,
-          type: form.type,
-          userId: form.userId === "" ? null : form.userId
-        }),
+        body: JSON.stringify(data),
       });
 
-      if (res.ok) {
-        await fetchNotifs(); 
-        setForm({ message: "", type: "info", userId: "" }); // Limpiar formulario
-      } else {
-        alert("Error al enviar");
+      if (!res.ok) {
+        const result = await res.json();
+        alert(`Error al enviar: ${result.message || "Error desconocido."}`);
+        throw new Error(result.message);
       }
+
+      await fetchNotifs();
+      reset(); 
     } catch (error) {
-      console.error(error);
+      console.error("Error al enviar notificación", error);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  async function markRead(id: string) {
-    try {
-      const res = await fetch(`/pages/api/notifications/${id}`, {
-        method: 'PUT',
-      });
-      
-      if (res.ok) {
-        setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-      }
-    } catch (error) {
-      console.error("Error marcando como leída", error);
-    }
-  }
-
-  async function del(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm("¿Eliminar notificación?")) return;
-    
+
     try {
-      const res = await fetch(`/pages/api/notifications/${id}`, {
+      const res = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
         setNotifs((prev) => prev.filter((n) => n.id !== id));
+      } else {
+        alert("Error al eliminar la notificación.");
       }
     } catch (error) {
-      console.error("Error eliminando", error);
+      console.error(error);
     }
   }
 
+  const formatTime = (isoString: string) => {
+    return new Date(isoString).toLocaleString('es-ES', { 
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+    });
+  };
+
+  const getStyle = (type: string) => {
+    switch (type) {
+      case 'alert': return 'bg-red-100 border-red-300 text-red-800';
+      case 'reminder': return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+      case 'info':
+      default: return 'bg-blue-100 border-blue-300 text-blue-800';
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-start justify-center bg-white py-10">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-5xl">
-        <h2 className="text-2xl font-semibold text-green-800 text-center mb-8">
-          Centro de Notificaciones
+    <div className="flex min-h-screen items-start justify-center bg-gray-50 py-10">
+      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-6xl">
+        <h2 className="text-2xl font-bold text-green-800 text-center mb-8">
+          Gestión de Notificaciones y Anuncios
         </h2>
 
-        <form onSubmit={sendNotif} className="grid md:grid-cols-2 gap-8 mb-10">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mensaje
-              </label>
-              <div className="flex items-start border rounded-lg px-3 py-2">
-                <Bell className="text-gray-400 w-5 h-5 mr-2 mt-1" />
-                <textarea
-                  placeholder="Escribe el contenido de la notificación..."
-                  value={form.message}
-                  onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  className="flex-1 outline-none text-gray-700 min-h-[80px]"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de notificación
-              </label>
-              <div className="flex items-center border rounded-lg px-3 py-2">
-                {form.type === "info" && <Info className="text-blue-400 w-5 h-5 mr-2" />}
-                {form.type === "reminder" && <Bell className="text-yellow-400 w-5 h-5 mr-2" />}
-                {form.type === "alert" && <AlertTriangle className="text-red-400 w-5 h-5 mr-2" />}
-                <select
-                  value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="flex-1 outline-none text-gray-700 bg-transparent"
-                  disabled={loading}
-                >
-                  <option value="info">Info</option>
-                  <option value="reminder">Recordatorio</option>
-                  <option value="alert">Alerta</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ID de usuario (vacío = broadcast)
-              </label>
-              <div className="flex items-center border rounded-lg px-3 py-2">
-                <User className="text-gray-400 w-5 h-5 mr-2" />
-                <input
-                  placeholder="Ej: 123 o deja vacío"
-                  value={form.userId}
-                  onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                  className="flex-1 outline-none text-gray-700"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                className="flex-1 bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition"
-                disabled={loading}
-              >
-                {loading ? "Enviando..." : "Enviar"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ message: "", type: "info", userId: "" })}
-                className="flex-1 border border-green-700 text-green-700 py-2 rounded-lg hover:bg-green-50 transition"
-                disabled={loading}
-              >
-                Limpiar
-              </button>
-            </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 border rounded-xl shadow-inner bg-green-50 mb-10 space-y-4">
+          <div className="text-lg font-semibold text-green-700 flex items-center gap-2">
+            <Send className="w-5 h-5"/> Enviar Nuevo Anuncio
           </div>
+
           <div>
-            <h3 className="text-lg font-semibold text-green-800 mb-4">
-              Historial de notificaciones
-            </h3>
-            <div className="space-y-3">
-              {notifs.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center">
-                  No hay notificaciones registradas.
-                </p>
-              ) : (
-                notifs.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`border rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center transition ${
-                      n.read ? "bg-gray-50" : "bg-green-50"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-800 flex items-center gap-2">
-                        {n.type === "alert" && (
-                          <AlertTriangle className="w-4 h-4 text-red-500" />
-                        )}
-                        {n.type === "info" && <Info className="w-4 h-4 text-blue-500" />}
-                        {n.type === "reminder" && (
-                          <Bell className="w-4 h-4 text-yellow-500" />
-                        )}
-                        {n.type.toUpperCase()}
-                        <span className="text-xs text-gray-500 ml-2">
-                          {n.userId ? `→ ${n.userId}` : "→ Todos"}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-600">{n.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(n.sentAt || "").toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2 mt-3 sm:mt-0">
-                      {!n.read && (
-                        <button
-                          onClick={() => markRead(n.id)}
-                          className="text-sm px-3 py-1 border border-green-700 text-green-700 rounded-lg hover:bg-green-50 transition"
-                        >
-                          Marcar leído
-                        </button>
-                      )}
-                      <button
-                        onClick={() => del(n.id)}
-                        className="text-sm px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje del Anuncio</label>
+            <textarea
+              placeholder="Escribe el anuncio aquí..."
+              {...register("message", { required: true })}
+              className="w-full border rounded-lg p-3 h-24 outline-none text-gray-700"
+              disabled={isSubmitting}
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Notificación</label>
+              <select
+                {...register("type", { required: true })}
+                className="w-full border rounded-lg p-3 outline-none text-gray-700"
+                disabled={isSubmitting}
+                required
+              >
+                <option value="info">Informativo (Azul)</option>
+                <option value="alert">Alerta Urgente (Rojo)</option>
+                <option value="reminder">Recordatorio (Amarillo)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ID de Usuario Específico (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Dejar vacío para enviar a TODOS (Broadcast)"
+                {...register("userId")}
+                className="w-full border rounded-lg p-3 outline-none text-gray-700"
+                disabled={isSubmitting}
+              />
             </div>
           </div>
+
+          <button
+            type="submit"
+            className="w-full bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition disabled:bg-gray-400 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+                <>
+                    <Loader2 className="w-5 h-5 animate-spin"/> Enviando...
+                </>
+            ) : (
+                <>
+                    <Send className="w-5 h-5"/> Enviar Anuncio Ahora
+                </>
+            )}
+          </button>
         </form>
+
+        <h3 className="text-lg font-semibold text-green-800 mb-4">
+          Historial de Notificaciones ({notifs.length})
+        </h3>
+        {loading ? (
+          <div className="flex justify-center items-center h-20 text-gray-500">
+            <Loader2 className="w-6 h-6 animate-spin mr-2"/> Cargando historial...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifs.map((n) => (
+              <div
+                key={n.id}
+                className={`border rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center ${getStyle(n.type)}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm capitalize">
+                    {n.type}
+                    <span className="text-xs font-normal ml-3 text-gray-600">
+                        {n.userId ? <User className="w-3 h-3 inline mr-1"/> : "(BROADCAST)"} {n.userId || 'A todos los usuarios'}
+                    </span>
+                  </p>
+                  <p className="text-gray-700 mt-1 break-words">{n.message}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Enviado: {formatTime(n.sentAt)}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 mt-3 sm:mt-0 sm:ml-4">
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${n.read ? 'bg-gray-300 text-gray-700' : 'bg-red-500 text-white'}`}>
+                    {n.read ? 'Leída' : 'Pendiente'}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(n.id)}
+                    className="text-xs px-3 py-1 bg-red-50 border border-red-500 text-red-600 rounded-lg hover:bg-red-100 transition"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

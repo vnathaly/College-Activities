@@ -44,17 +44,24 @@ export default function Navbar() {
     setUser(null);
   }
 
+  const userRole = user?.userType || user?.role;
+  const isStudent = userRole === 'student';
+
+  const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/mantenimientos') || pathname.startsWith('/enrollments') || pathname.startsWith('/activities');
+  
+  if (isStudent || isDashboardRoute) {
+    return null;
+  }
+
   return (
     <nav className="bg-white shadow-md border-b border-gray-100 relative z-50">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl font-semibold text-green-800">
             Agenda UTESA
           </span>
         </Link>
 
-        {/* Links principales */}
         <div className="flex items-center gap-6">
           <Link
             href="/"
@@ -88,7 +95,6 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Usuario o login */}
         <div className="flex items-center gap-3" ref={dropdownRef}>
           {user ? (
             <div className="relative">
@@ -113,7 +119,7 @@ export default function Navbar() {
                     </p>
                     <p className="text-xs text-gray-500 flex items-center gap-2 mt-1">
                       <Shield className="w-4 h-4 text-gray-500" />
-                      Rol: <span className="capitalize">{user.role}</span>
+                      Rol: <span className="capitalize">{user.userType}</span>
                     </p>
                   </div>
 
