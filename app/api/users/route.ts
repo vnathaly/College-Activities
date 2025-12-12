@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool, { query } from '@/lib/db'; // Usamos pool para transacciones, query para GET
+import pool, { query } from '@/lib/db'; 
 
 export async function GET() {
   try {
@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const client = await pool.connect(); // Obtener cliente dedicado para transacción
+  const client = await pool.connect();
 
   try {
     const data = await request.json();
@@ -36,10 +36,8 @@ export async function POST(request: Request) {
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    await client.query('BEGIN'); // 1. Iniciar Transacción
+    await client.query('BEGIN'); 
 
-    // ✅ CORRECCIÓN CLAVE (23502):
-    // Forzamos la inserción de id, createdAt, y updatedAt.
     const newUserResult = await client.query(
       `INSERT INTO "User" (
          id, matricula, email, "passwordHash", "firstName", "lastName", "userType", "createdAt", "updatedAt"
@@ -51,20 +49,19 @@ export async function POST(request: Request) {
       [matricula, email, password, firstName, lastName, role]
     );
 
-    await client.query('COMMIT'); // 2. Commit si fue exitoso
+    await client.query('COMMIT'); 
 
     return NextResponse.json(newUserResult.rows[0], { status: 201 });
   } catch (error) {
-    await client.query('ROLLBACK'); // 3. Rollback si falla
+    await client.query('ROLLBACK');
     console.error("Error al crear usuario (ROLLBACK):", error);
     
-    // Manejo de error de duplicidad si la matrícula o email ya existe (código 23505)
     if (error && typeof error === 'object' && 'code' in error && (error.code === '23505' || error.code === '23502')) {
          return NextResponse.json({ message: 'La matrícula o el correo ya están registrados.' }, { status: 409 });
     }
     
     return NextResponse.json({ message: 'Error interno al crear usuario.' }, { status: 500 });
   } finally {
-    client.release(); // 4. Liberar cliente
+    client.release();
   }
 }

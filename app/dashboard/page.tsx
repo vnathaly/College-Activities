@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser, logout } from "../../lib/auth";
-import { Home as HomeIcon, CalendarDays, Users, Bookmark, LogOut, MapPin, Search, BarChart, UserCircle, Bell, Info, CheckCircle, ClipboardList } from "lucide-react";
+import { Home as HomeIcon, CalendarDays, Users, Bookmark, LogOut, MapPin, Search, BarChart, UserCircle, Bell, Info, CheckCircle, ClipboardList, TrendingUp } from "lucide-react";
 
 interface SafeUser {
     id: string;
@@ -198,6 +198,7 @@ export default function DashboardPage() {
         { name: "Eventos (Maint.)", href: "/mantenimientos/eventos", icon: CalendarDays, requiredRoles: ['admin', 'organizer'], current: false },
         { name: "Usuarios (Maint.)", href: "/mantenimientos/usuarios", icon: Users, requiredRoles: ['admin'], current: false },
         { name: "Notificaciones", href: "/mantenimientos/notificaciones", icon: Bell, requiredRoles: ['admin', 'organizer'], current: false },
+        { name: "Reportes", href: "/mantenimientos/reportes", icon: TrendingUp, requiredRoles: ['admin', 'organizer'], current: false },
     ];
 
     const filteredMenuItems = baseMenuItems.filter(item => {

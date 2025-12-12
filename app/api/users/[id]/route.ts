@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-// ===============================
-//            PUT
-// ===============================
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -11,7 +8,7 @@ export async function PUT(
   const client = await pool.connect();
 
   try {
-    const { id } = await params; // ⬅️ NECESARIO EN NEXT 14+
+    const { id } = await params; 
 
     if (!id) {
       await client.query('ROLLBACK');
@@ -84,9 +81,6 @@ export async function PUT(
   }
 }
 
-// ===============================
-//           DELETE
-// ===============================
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -94,7 +88,7 @@ export async function DELETE(
   const client = await pool.connect();
 
   try {
-    const { id } = await params; // ⬅️ FIX IMPORTANTE
+    const { id } = await params; 
 
     if (!id) {
       await client.query('ROLLBACK');
