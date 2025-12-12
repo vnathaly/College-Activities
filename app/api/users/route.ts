@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import pool, { query } from '@/lib/db'; // Usamos pool para transacciones, query para GET
 
 export async function GET() {
   try {
@@ -26,6 +26,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const client = await pool.connect(); // Obtener cliente dedicado para transacción
+
   try {
     const data = await request.json();
     const { name, email, role, password, matricula } = data; 
@@ -34,15 +36,35 @@ export async function POST(request: Request) {
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    const newUserResult = await query(
-      `INSERT INTO "User" (matricula, email, "passwordHash", "firstName", "lastName", "userType") 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, "userType"`,
+    await client.query('BEGIN'); // 1. Iniciar Transacción
+
+    // ✅ CORRECCIÓN CLAVE (23502):
+    // Forzamos la inserción de id, createdAt, y updatedAt.
+    const newUserResult = await client.query(
+      `INSERT INTO "User" (
+         id, matricula, email, "passwordHash", "firstName", "lastName", "userType", "createdAt", "updatedAt"
+       ) 
+       VALUES (
+         uuid_generate_v4(), $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+       ) 
+       RETURNING id, email, "userType"`,
       [matricula, email, password, firstName, lastName, role]
     );
 
+    await client.query('COMMIT'); // 2. Commit si fue exitoso
+
     return NextResponse.json(newUserResult.rows[0], { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: 'Error al crear usuario (posible matrícula duplicada)' }, { status: 500 });
+    await client.query('ROLLBACK'); // 3. Rollback si falla
+    console.error("Error al crear usuario (ROLLBACK):", error);
+    
+    // Manejo de error de duplicidad si la matrícula o email ya existe (código 23505)
+    if (error && typeof error === 'object' && 'code' in error && (error.code === '23505' || error.code === '23502')) {
+         return NextResponse.json({ message: 'La matrícula o el correo ya están registrados.' }, { status: 409 });
+    }
+    
+    return NextResponse.json({ message: 'Error interno al crear usuario.' }, { status: 500 });
+  } finally {
+    client.release(); // 4. Liberar cliente
   }
 }

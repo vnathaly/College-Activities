@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import pool, { query } from '@/lib/db'; // Usamos pool para transacciones, query para GET
 
+// GET: Obtiene todos los eventos
 export async function GET() {
   try {
     const result = await query(
@@ -14,20 +15,38 @@ export async function GET() {
   }
 }
 
+// POST: Crea un nuevo evento con transacción y manejo de UUIDs
 export async function POST(request: Request) {
+  const client = await pool.connect(); // Obtener cliente dedicado para transacción
+
   try {
     const data = await request.json();
     const { title, description, date, place, maxCapacity, category, responsible } = data;
 
-    const newEventResult = await query(
-      `INSERT INTO "Activity" (title, description, date, place, "maxCapacity", category, responsible)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    await client.query('BEGIN'); // 1. Iniciar Transacción
+
+    // ✅ CORRECCIÓN FINAL DE INSERCIÓN:
+    // Aseguramos que 'id' se genere con uuid_generate_v4() y que
+    // 'createdAt'/'updatedAt' reciban CURRENT_TIMESTAMP.
+    const newEventResult = await client.query(
+      `INSERT INTO "Activity" (
+         id, title, description, date, place, "maxCapacity", category, responsible, "createdAt", "updatedAt"
+       )
+       VALUES (
+         uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+       ) RETURNING *`,
       [title, description, new Date(date), place, maxCapacity, category || 'General', responsible || 'Admin']
     );
 
+    await client.query('COMMIT'); // 2. Commit si fue exitoso
+
     return NextResponse.json(newEventResult.rows[0], { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: 'Error al crear evento' }, { status: 500 });
+    await client.query('ROLLBACK'); // 3. Rollback si falla
+    console.error("Error al crear actividad (ROLLBACK):", error);
+    
+    return NextResponse.json({ message: 'Error interno al crear actividad' }, { status: 500 });
+  } finally {
+    client.release(); // 4. Liberar cliente
   }
 }
